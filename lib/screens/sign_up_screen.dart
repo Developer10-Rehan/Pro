@@ -31,7 +31,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               onPressed: () {
                 Navigator.of(context).pop();
                 if (isSuccess) {
-                  Navigator.pushNamed(context, '/home'); // Navigate to home if successful
+                  Navigator.pushNamed(context, '/login'); // Navigate to home if successful
                 }
               },
               child: Text('OK'),
@@ -60,7 +60,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       // Save user data to Firestore
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+      await _firestore.collection('user').doc(userCredential.user!.uid).set({
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'newsletter': _newsletter,

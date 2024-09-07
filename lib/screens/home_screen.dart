@@ -71,16 +71,13 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 1:
         Navigator.pushNamed(
-            context, '/feelingDiary'); // Navigate to Feeling Diary screen
+            context, '/chatbot'); // Navigate to Feeling Diary screen
         break;
       case 2:
-        Navigator.pushNamed(context, '/chatbot'); // Navigate to Chatbot screen
+        Navigator.pushNamed(context, '/music'); // Navigate to Chatbot screen
         break;
       case 3:
-        Navigator.pushNamed(context, '/music'); // Navigate to Music screen
-        break;
-      case 4:
-        Navigator.pushNamed(context, '/profile'); // Navigate to Profile screen
+        Navigator.pushNamed(context, '/profile'); // Navigate to Music screen
         break;
     }
   }

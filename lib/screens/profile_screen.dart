@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '/widgets/bottom_navbar.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -13,6 +16,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String profileImageUrl = '/lib/assets/images/logo.png'; // Initial profile image URL
   final ImagePicker _picker = ImagePicker();
   int _selectedIndex = 3;
+
+   String _userName = "User"; // Default user name
+  String _userEmail = "user@example.com"; // Default user email
+
+      Future<void> _fetchUserData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('userId');
+
+    if (userId != null) {
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('user')
+            .doc(userId)
+            .get();
+
+        if (userDoc.exists) {
+          Map<String, dynamic>? userData =
+              userDoc.data() as Map<String, dynamic>?;
+          setState(() {
+            _userName = userData?['name'] ?? "User";
+            _userEmail = userData?['email'] ?? "user@example.com";
+          });
+        }
+      } catch (e) {
+        print("Error fetching user data: $e");
+      }
+    }
+  }
+  
+    @override
+  void initState() {
+    super.initState();
+    _fetchUserData(); // Fetch user data on initialization
+  }
+
+
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -80,14 +119,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               SizedBox(height: 16),
               Center(
                 child: Text(
-                  'Ronal',
+                  _userName,
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
               ),
               SizedBox(height: 8),
               Center(
                 child: Text(
-                  'ronal@example.com',
+                  _userEmail,
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ),
@@ -100,12 +139,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ListTile(
                 leading: Icon(Icons.person),
                 title: Text('Name'),
-                subtitle: Text('Ronal'),
+                subtitle: Text(_userName),
               ),
               ListTile(
                 leading: Icon(Icons.email),
                 title: Text('Email'),
-                subtitle: Text('ronal@example.com'),
+                subtitle: Text(_userEmail),
               ),
               ListTile(
                 leading: Icon(Icons.phone),
@@ -141,7 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 leading: Icon(Icons.logout),
                 title: Text('Logout'),
                 onTap: () {
-                  // Handle logout action
+                  Navigator.pushNamed(context, '/login');
                 },
               ),
             ],

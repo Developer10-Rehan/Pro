@@ -30,7 +30,7 @@ class _FeelingDiaryScreenState extends State<FeelingDiaryScreen> {
     final sleepingTime = _sleepingTimeController.text;
     final note = _noteController.text;
     final sleepingTimeRegExp =
-        RegExp(r'^\d{1,2}h \d{1,2}m$'); // More flexible regex
+        RegExp(r'^\d{1,2}h \d{1,2}m$'); // Ensures format like '7h 30m'
 
     setState(() {
       _isFormValid = sleepingTimeRegExp.hasMatch(sleepingTime) &&
@@ -53,8 +53,7 @@ class _FeelingDiaryScreenState extends State<FeelingDiaryScreen> {
         stressDescription = 'High Stress';
       }
 
-      _stressLevelController.text =
-          '$stressLevel ($stressDescription)';
+      _stressLevelController.text = '$stressLevel ($stressDescription)';
       setState(() {
         _isStressLevelCalculated = true;
       });
@@ -63,30 +62,40 @@ class _FeelingDiaryScreenState extends State<FeelingDiaryScreen> {
 
   int _calculateStressLevel() {
     final sleepingTime = _sleepingTimeController.text;
+
+    // Ensure valid format before splitting
+    if (!RegExp(r'^\d{1,2}h \d{1,2}m$').hasMatch(sleepingTime)) {
+      return 3; // High stress for invalid input
+    }
+
     final moodScore = _getMoodScore(_selectedMood);
     final noteScore = _getNoteScore(_noteController.text);
 
-    // Calculate the sleep score
+    // Split sleeping time into hours and minutes
     final sleepingTimeParts = sleepingTime.split(' ');
     final hours = int.tryParse(sleepingTimeParts[0].replaceAll('h', '')) ?? 0;
     final minutes = int.tryParse(sleepingTimeParts[1].replaceAll('m', '')) ?? 0;
     final totalMinutes = hours * 60 + minutes;
 
+    print(totalMinutes);
+
     int sleepScore;
     if (totalMinutes >= 420) {
-      // 7 hours
+      print("Low stress");
       sleepScore = 1; // Low stress
-    } else if (totalMinutes >= 300) {
-      // 5 hours
+    } else if (totalMinutes >= 180 && totalMinutes < 420) {
+      print("Medium stress");
       sleepScore = 2; // Medium stress
     } else {
+      print("High stress");
       sleepScore = 3; // High stress
     }
+    print('Assigned sleepScore: $sleepScore');
 
-    // Average the scores for stress level
-    final averageScore = (sleepScore + moodScore + noteScore) ~/ 3;
+    // Calculate average score
+    // final averageScore = (sleepScore + moodScore + noteScore) ~/ 3;
 
-    return averageScore;
+    return sleepScore;
   }
 
   int _getMoodScore(String mood) {
@@ -206,95 +215,100 @@ class _FeelingDiaryScreenState extends State<FeelingDiaryScreen> {
     final DateFormat formatter = DateFormat('EEEE - MMMM d, yyyy \na h:mm a');
     final String formattedDate = formatter.format(now);
 
+    void _showAllNotesDialog() {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Center(
+              child: Text(
+                'All Notes',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ),
+            content: Container(
+              width: double
+                  .maxFinite, // Make the container width as wide as the screen
+              constraints: BoxConstraints(
+                  maxHeight: 500), // Set a maximum height for the content
+              padding: EdgeInsets.all(8.0), // Add padding around the content
+              child: StreamBuilder(
+                stream: FirebaseFirestore.instance
+                    .collection('user')
+                    .doc(
+                        _userId) // Update this with the userId dynamically if needed
+                    .collection('feeling_diary')
+                    .orderBy('date', descending: true)
+                    .snapshots(),
+                builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
 
-void _showAllNotesDialog() {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Center(
-          child: Text(
-            'All Notes',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-        ),
-        content: Container(
-          width: double.maxFinite, // Make the container width as wide as the screen
-          constraints: BoxConstraints(maxHeight: 500), // Set a maximum height for the content
-          padding: EdgeInsets.all(8.0), // Add padding around the content
-          child: StreamBuilder(
-            stream: FirebaseFirestore.instance
-                .collection('user')
-                .doc(_userId) // Update this with the userId dynamically if needed
-                .collection('feeling_diary')
-                .orderBy('date', descending: true)
-                .snapshots(),
-            builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(child: Text('No notes available.'));
+                  }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text('No notes available.'));
-              }
+                  final notes = snapshot.data!.docs;
 
-              final notes = snapshot.data!.docs;
+                  return ListView.builder(
+                    itemCount: notes.length,
+                    itemBuilder: (context, index) {
+                      final note = notes[index];
+                      final date = (note['date'] as Timestamp).toDate();
+                      final formattedDate =
+                          DateFormat('EEEE - MMMM d, yyyy \na h:mm a')
+                              .format(date);
 
-              return ListView.builder(
-                itemCount: notes.length,
-                itemBuilder: (context, index) {
-                  final note = notes[index];
-                  final date = (note['date'] as Timestamp).toDate();
-                  final formattedDate = DateFormat('EEEE - MMMM d, yyyy \na h:mm a').format(date);
-
-                  return Card(
-                    margin: EdgeInsets.symmetric(vertical: 8.0), // Space between cards
-                    elevation: 4.0, // Add shadow for better depth
-                    child: ListTile(
-                      contentPadding: EdgeInsets.all(12.0), // Add padding inside the ListTile
-                      title: Text(
-                        'Date: $formattedDate',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 4.0), // Add spacing between lines
-                          Text('Sleeping Time: ${note['sleeping_time']}'),
-                          SizedBox(height: 4.0),
-                          Text('Mood: ${note['mood']}'),
-                          SizedBox(height: 4.0),
-                          Text('Note: ${note['note']}'),
-                          SizedBox(height: 4.0),
-                          Text('Stress Level: ${note['stress_level']}'),
-                        ],
-                      ),
-                    ),
+                      return Card(
+                        margin: EdgeInsets.symmetric(
+                            vertical: 8.0), // Space between cards
+                        elevation: 4.0, // Add shadow for better depth
+                        child: ListTile(
+                          contentPadding: EdgeInsets.all(
+                              12.0), // Add padding inside the ListTile
+                          title: Text(
+                            'Date: $formattedDate',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                  height: 4.0), // Add spacing between lines
+                              Text('Sleeping Time: ${note['sleeping_time']}'),
+                              SizedBox(height: 4.0),
+                              Text('Mood: ${note['mood']}'),
+                              SizedBox(height: 4.0),
+                              Text('Note: ${note['note']}'),
+                              SizedBox(height: 4.0),
+                              Text('Stress Level: ${note['stress_level']}'),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.blue, // Change button color
-              textStyle: TextStyle(fontWeight: FontWeight.bold), // Change text style
+              ),
             ),
-            child: Text('Close'),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
+            actions: <Widget>[
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.blue, // Change button color
+                  textStyle: TextStyle(
+                      fontWeight: FontWeight.bold), // Change text style
+                ),
+                child: Text('Close'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
       );
-    },
-  );
-}
-
-
-
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -314,7 +328,6 @@ void _showAllNotesDialog() {
               child: TextButton(
                 onPressed: _showAllNotesDialog,
                 child: Text('All notes'),
-                
               ),
             ),
             SizedBox(height: 20),
